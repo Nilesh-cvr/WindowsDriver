@@ -1,0 +1,6 @@
+﻿  DriverClientMain.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 10 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  DriverClient.vcxproj -> C:\Users\NileshKumar\Desktop\Nilesh\WindowsInternal\WindowsDriver\MyDriver_Client\DriverClient\x64\Release\DriverClient.exe
