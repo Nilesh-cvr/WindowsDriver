@@ -1,5 +1,7 @@
 #include<iostream>
-#include"windows.h"
+#include<windows.h>
+#include<chrono>
+#include<thread>
 
 #include "myDriverPriorityBooster.h"
 
@@ -10,13 +12,14 @@ int main(int argc, const char* argv[]) {
 		cout << "Not sufficient argument";
 		return -1;
 	}
-
-	HANDLE hDevice = CreateFileW(L"\\\\.\\PriorityBooster", GENERIC_WRITE,
-		FILE_SHARE_WRITE, nullptr,
+	
+	HANDLE hDevice = CreateFileW(DRIVER_WIN_NAME,
+		 GENERIC_WRITE, FILE_SHARE_WRITE, nullptr,
 		OPEN_EXISTING, 0, nullptr);
-	if (hDevice == INVALID_HANDLE_VALUE)
+
+	if (INVALID_HANDLE_VALUE == hDevice)
 	{
-		cout << "Failed to open Handle";
+		cout << "Failed to open Handle: "<<GetLastError();
 		return -1;
 	}
 		
@@ -36,9 +39,10 @@ int main(int argc, const char* argv[]) {
 	if (success)
 		cout << "Priority change succeed";
 	else
-		cout << "Priority change failed";
+		cout << "Priority change failed " << GetLastError();
+	
 
 	CloseHandle(hDevice);
-
+	
 	return 0;
 }
