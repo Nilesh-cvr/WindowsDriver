@@ -3,33 +3,13 @@
 #include<ntifs.h>
 #include "myDriverPriorityBooster.h"
 
-#define DRIVER_TAG 'dcba'
-
-//UNICODE_STRING g_RegistryPath;
-
-
-
-NTSTATUS PriorityBoosterCreate(_In_ DEVICE_OBJECT devObj, _Inout_ PIRP irp);
-NTSTATUS PriorityBoosterClose(_In_ DEVICE_OBJECT devObj, _Inout_ PIRP irp);
-NTSTATUS PriorityBoosterDeviceControl(_In_ PDEVICE_OBJECT devObj, _Inout_ PIRP irp);
-
 
 __drv_dispatchType(IRP_MJ_CREATE) DRIVER_DISPATCH PriorityBoosterCreate;
 __drv_dispatchType(IRP_MJ_CLOSE) DRIVER_DISPATCH PriorityBoosterClose;
 __drv_dispatchType(IRP_MJ_DEVICE_CONTROL) DRIVER_DISPATCH PriorityBoosterDeviceControl;
 
 
-_Use_decl_annotations_ NTSTATUS PriorityBoosterCreate(_In_ DEVICE_OBJECT devObj, _Inout_ PIRP irp)
-{
-	UNREFERENCED_PARAMETER(devObj);
-	irp->IoStatus.Status = STATUS_SUCCESS;
-	irp->IoStatus.Information = 0;
-	IoCompleteRequest(irp, IO_NO_INCREMENT);
-
-	return STATUS_SUCCESS;
-}
-
-_Use_decl_annotations_ NTSTATUS PriorityBoosterClose(_In_ DEVICE_OBJECT devObj, _Inout_ PIRP irp)
+_Use_decl_annotations_ NTSTATUS PriorityBoosterCreateClose(PDEVICE_OBJECT devObj, PIRP irp)
  {
 	 UNREFERENCED_PARAMETER(devObj);
 	 irp->IoStatus.Status = STATUS_SUCCESS;
@@ -83,13 +63,11 @@ _Use_decl_annotations_  NTSTATUS PriorityBoosterDeviceControl(_In_ PDEVICE_OBJEC
 }
 
 //Unloading driver and it's resources
-void myDriverUnload(PDRIVER_OBJECT drvObj)
+void myDriverUnload(_In_ PDRIVER_OBJECT drvObj)
 {
-	//UNREFERENCED_PARAMETER(drvObj);
-	KdPrint(("Nilesh : myDriverUnload unloading..."));
-//	ExFreePool(g_RegistryPath.Buffer);
+	KdPrint(("MyDriver : myDriverUnload unloading..."));
 
-	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\DosDevices\\Example");
+	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\PrioBoss");
 	IoDeleteSymbolicLink(&symLink);
 	IoDeleteDevice(drvObj->DeviceObject);
 }
@@ -97,82 +75,34 @@ void myDriverUnload(PDRIVER_OBJECT drvObj)
 
 extern "C"
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT drvObj, _In_ PUNICODE_STRING RegPath) {
-	KdPrint(("Nilesh : DriverEntry..."));
+	KdPrint(("MyDriver : DriverEntry..."));
 
 	UNREFERENCED_PARAMETER(RegPath);
-	UNICODE_STRING usDriverName, usDosDeviceName;
-	PDEVICE_OBJECT pDeviceObject = NULL;
 
 	//Driver unload
 	drvObj->DriverUnload = myDriverUnload;
 	
-	/*
-	
-	//Driver registry printing
-	g_RegistryPath.Buffer = (WCHAR *)ExAllocatePool2(PagedPool,RegPath->Length, DRIVER_TAG);
-	if (g_RegistryPath.Buffer == nullptr)
-	{
-		KdPrint(("Nilesh : Registrypath is Null..."));
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
-	g_RegistryPath.MaximumLength = RegPath->MaximumLength;
-	RtlCopyUnicodeString(&g_RegistryPath, (PCUNICODE_STRING)RegPath);
-	DbgPrint("Nilesh : Registrypath is Null...%s", g_RegistryPath);
-	*/
-
-	//Get version info
-	RTL_OSVERSIONINFOW versionInfo = {0};
-	versionInfo.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
-	RtlGetVersion(PRTL_OSVERSIONINFOW(&versionInfo));
-	DbgPrint("Nilesh : RtlGetVersion...versionInfo.dwBuildNumber = %lu, versionInfo.dwOSVersionInfoSize = %lu, versionInfo.dwPlatformId =%lu", versionInfo.dwBuildNumber, versionInfo.dwOSVersionInfoSize,
-		versionInfo.dwPlatformId);
-	
-	
-
 	//Priority of a process booster
-	//drvObj->MajorFunction[IRP_MJ_CREATE] = PriorityBoosterCreate;
-	//drvObj->MajorFunction[IRP_MJ_CLOSE] = PriorityBoosterClose;
+	drvObj->MajorFunction[IRP_MJ_CREATE] = PriorityBoosterCreateClose;
+	drvObj->MajorFunction[IRP_MJ_CLOSE] = PriorityBoosterCreateClose;
 	drvObj->MajorFunction[IRP_MJ_DEVICE_CONTROL] = PriorityBoosterDeviceControl;
 
 
-	
-	RtlInitUnicodeString(&usDriverName, L"\\Device\\Nilesh");
-	RtlInitUnicodeString(&usDosDeviceName, L"\\DosDevices\\Nilesh");
-
-	NTSTATUS status = IoCreateDevice(drvObj, 0, &usDriverName, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pDeviceObject);
-	if (status != 0) {
-		KdPrint(("Failed to Create device Objec\n", status));
-		return status;
-	}
-	else
-		KdPrint(("Created device Objec\n", status));
-
-	
-	status = IoCreateSymbolicLink(&usDosDeviceName, &usDriverName);
-	if (status != 0) {
-		KdPrint(("Failed to Create Symbolic Link (0x%08X)\n", status));
-		IoDeleteDevice(pDeviceObject);
-		return status;
-	}
-	else
-		KdPrint(("Created Symbolic Link(0x % 08X)\n", status));
-
-	/*
 	//Devicename
-	UNICODE_STRING devName = RTL_CONSTANT_STRING(L"\\Device\\PriorityBooster");
+	UNICODE_STRING devName = RTL_CONSTANT_STRING(DEVICE_NAME);
 	PDEVICE_OBJECT DeviceObject;
 	NTSTATUS status = IoCreateDevice(drvObj, 0, &devName, FILE_DEVICE_UNKNOWN, 0, FALSE, &DeviceObject);
-	if (!status) {
-		KdPrint(("Failed to Create device Objec\n", status));
+	if (status) {
+		KdPrint(("Failed to Create device Object\n", status));
 		return status;
 	}
 	else
-		KdPrint(("Created device Objec\n", status));
+		KdPrint(("Created device Object\n", status));
 		
 	//Symbolic link
-	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\DosDevice\\PriorityBooster");
+	UNICODE_STRING symLink = RTL_CONSTANT_STRING(DRIVER_DOS_NAME);
 	status = IoCreateSymbolicLink(&symLink, &devName);
-	if (!status) {
+	if (status) {
 		KdPrint(("Failed to Create Symbolic Link (0x%08X)\n", status));
 		IoDeleteDevice(DeviceObject);
 		return status;
@@ -180,7 +110,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT drvObj, _In_ PUNICODE_STRING RegPath) {
 	else
 		KdPrint(("Created Symbolic Link(0x % 08X)\n", status));
 
-	*/
 	
 	return STATUS_SUCCESS;
 
